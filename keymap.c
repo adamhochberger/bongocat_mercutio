@@ -99,7 +99,7 @@ bool oled_task_kb(void) {
     //         // Or use the write_ln shortcut over adding '\n' to the end of your string
     //         oled_write_ln_P(PSTR("Undefined"), false);
     // }
-
+    oled_clear();
     draw_bongo(false);
     #ifdef WPM_ENABLE
     oled_set_cursor(0,4);

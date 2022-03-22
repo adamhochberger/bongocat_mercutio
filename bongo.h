@@ -4,15 +4,13 @@
 
 #include "bongo_images.h"
 
-enum anim_states
-{
+enum anim_states {
     Idle,
     Prep,
     Tap
 };
 
-struct key_coordinate
-{
+struct key_coordinate {
     uint8_t row;
     uint8_t col;
 };

@@ -20,7 +20,9 @@ struct key_coordinate
 struct key_coordinate pressed_keys[KEYS_SIZE];
 struct key_coordinate pressed_keys_prev[KEYS_SIZE];
 
-bool key_down = 0;
+char wpm_str[10];
+
+bool key_down = false;
 
 uint8_t anim_state = Idle;
 uint8_t current_idle_frame = 0;
@@ -34,35 +36,31 @@ bool detect_key_down(void) {
     bool new_keys_pressed = false;
 
     // store the previous cycle's cache
-    for (uint8_t i = 0; i < KEYS_SIZE; ++i)
-    {
+    for (uint8_t i = 0; i < KEYS_SIZE; ++i) {
         pressed_keys_prev[i].row = pressed_keys[i].row;
         pressed_keys_prev[i].col = pressed_keys[i].col;
     }
 
     // fill cache with currently pressed keys
-    for (uint8_t row_index = 0; row_index < MATRIX_ROWS; row_index++)
-    {
-        for (uint8_t col_index = 0; col_index < MATRIX_COLS; col_index++)
-        {
-            key_array_index = row_index * MATRIX_COLS + col_index;
-            
+    key_array_index = 0;
+
+    for (uint8_t row_index = 0; row_index < MATRIX_ROWS; ++row_index) {
+        for (uint8_t col_index = 0; col_index < MATRIX_COLS; ++col_index) {
             bool key_is_down = (matrix_get_row(row_index) & (1 << col_index)) > 0;
-            if (key_is_down)
-            {
+            if (key_is_down) {
                 pressed_keys[key_array_index].row = row_index+1; // adding 1 to the row/col so that we can use 0 as a null-check
                 pressed_keys[key_array_index].col = col_index+1;
 
-                if(pressed_keys_prev[key_array_index].row == 0 && pressed_keys_prev[key_array_index].col == 0) {
+                if (pressed_keys[key_array_index].row && pressed_keys[key_array_index].col && !pressed_keys_prev[key_array_index].row && !pressed_keys_prev[key_array_index].col) {
                     new_keys_pressed = true;
                 }
 
             }
-            else
-            {
+            else {
                 pressed_keys[key_array_index].row = 0;
                 pressed_keys[key_array_index].col = 0;
             }
+            ++key_array_index;
         }
     }
 
@@ -71,31 +69,29 @@ bool detect_key_down(void) {
 
 void eval_anim_state(void) {
     key_down = detect_key_down();
+    
+    // It is being set to Prep right after being set to Tap
+    // Logic flow: I press when it is idle, it is set to Tap and then Prep immediately (seems like two presses get registered on one)
 
-    switch (anim_state)
-    {
+    switch (anim_state) {
         case Idle:
-            if (key_down) // Idle to Tap
-            {
+            if (key_down) {
                 anim_state = Tap;
             }
             break;
 
         case Prep:
-            if (key_down) // Prep to Tap
-            {
+            if (key_down) {
                 anim_state = Tap;
             }
-            else if (timer_elapsed32(idle_timeout_timer) >= IDLE_TIMEOUT) // Prep to Idle
-            {
+            else if (timer_elapsed32(idle_timeout_timer) >= IDLE_TIMEOUT) {
                 anim_state = Idle;
                 current_idle_frame = 0;
             }
             break;
 
         case Tap:
-            if (!key_down) // Tap to Prep
-            {
+            if (!key_down) {
                 anim_state = Prep;
                 idle_timeout_timer = timer_read32();
             }
@@ -109,33 +105,33 @@ void eval_anim_state(void) {
 static void draw_bongo(bool minimal) {
     eval_anim_state();
     oled_set_cursor(0, 0);
+    // if (idle_timeout_timer == 0) {
+    //     idle_timeout_timer = timer_read32();
+    // }
 
-    switch (anim_state)
-    {
+    // if (timer_elapsed32(idle_timeout_timer) >= IDLE_TIMEOUT) {
+    //     oled_write_raw_P(tap[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIM_SIZE);
+    //     current_tap_frame = (current_tap_frame + 1) % TAP_FRAMES;
+    //     idle_timeout_timer = timer_read32();
+    // }
+    
+
+    switch (anim_state) {
         case Idle:
-            if (minimal)
-                oled_write_raw_P(idle_minimal[abs((IDLE_FRAMES - 1) - current_idle_frame)], ANIM_SIZE);
-            else
-                oled_write_raw_P(idle[abs((IDLE_FRAMES - 1) - current_idle_frame)], ANIM_SIZE);
-            if (timer_elapsed32(anim_timer) > ANIM_FRAME_DURATION)
-            {
+            oled_write_raw_P(idle[abs((IDLE_FRAMES - 1) - current_idle_frame)], ANIM_SIZE);
+
+            if (timer_elapsed32(anim_timer) > ANIM_FRAME_DURATION) {
                 current_idle_frame = (current_idle_frame + 1) % IDLE_FRAMES;
                 anim_timer = timer_read32();
             }
             break;
 
         case Prep:
-            if (minimal)
-                oled_write_raw_P(prep_minimal[0], ANIM_SIZE);
-            else
-                oled_write_raw_P(prep[0], ANIM_SIZE);
+            oled_write_raw_P(prep[0], ANIM_SIZE);
             break;
 
         case Tap:
-            if (minimal)
-                oled_write_raw_P(tap_minimal[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIM_SIZE);
-            else
-                oled_write_raw_P(tap[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIM_SIZE);
+            oled_write_raw_P(tap[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIM_SIZE);
             current_tap_frame = (current_tap_frame + 1) % TAP_FRAMES;
             break;
 
@@ -143,8 +139,7 @@ static void draw_bongo(bool minimal) {
             break;
     }
 
-    // if (!minimal)
-    // {
+    // if (!minimal) {
     //     // // calculate && print clock
     //     // oled_set_cursor(0, 2);
     //     // uint8_t  hour = last_minute / 60;

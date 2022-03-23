@@ -18,58 +18,65 @@ struct key_coordinate {
 struct key_coordinate pressed_keys[KEYS_SIZE];
 struct key_coordinate pressed_keys_prev[KEYS_SIZE];
 
-char wpm_str[10];
+bool new_key_press = false;
 
 uint8_t animation_state = Idle;
-
-uint8_t anim_state = Idle;
 uint8_t current_idle_frame = 0;
 uint8_t current_tap_frame = 0;
-uint8_t key_array_index = 0;
 uint32_t idle_timeout_timer = 0;
 uint32_t animation_timer = 0;
 
-bool detect_key_down(void) {
-    // Set local variable that determines if new keys were pressed
-    bool new_keys_pressed = false;
+// Function that determines if a new key was pressed, while updating the pressed keys cache
+bool check_if_new_key_press(void) {
+    // Set local variable that determines if at least one new key was pressed
+    bool new_key_pressed = false;
 
-    // store the previous cycle's cache
-    for (uint8_t i = 0; i < KEYS_SIZE; ++i) {
-        pressed_keys_prev[i].row = pressed_keys[i].row;
-        pressed_keys_prev[i].col = pressed_keys[i].col;
+    // Store the previous cycle's cache
+    for (uint8_t cache_index = 0; cache_index < KEYS_SIZE; ++cache_index) {
+        pressed_keys_prev[cache_index].row = pressed_keys[cache_index].row;
+        pressed_keys_prev[cache_index].col = pressed_keys[cache_index].col;
     }
+    
+    uint8_t new_cache_index = 0;
 
-    // fill cache with currently pressed keys
-    key_array_index = 0;
-
+    // Double for-loop to load cache with values that determine if a key was pressed or not
     for (uint8_t row_index = 0; row_index < MATRIX_ROWS; ++row_index) {
-        for (uint8_t col_index = 0; col_index < MATRIX_COLS; ++col_index) {
-            bool key_is_down = (matrix_get_row(row_index) & (1 << col_index)) > 0;
-            if (key_is_down) {
-                pressed_keys[key_array_index].row = row_index+1; // adding 1 to the row/col so that we can use 0 as a null-check
-                pressed_keys[key_array_index].col = col_index+1;
 
-                if (pressed_keys[key_array_index].row && pressed_keys[key_array_index].col && !pressed_keys_prev[key_array_index].row && !pressed_keys_prev[key_array_index].col) {
-                    new_keys_pressed = true;
+        // Returns an n-bit representation of the pressed keys on the row, where n is a multiple of 8 based on the value of MATRIX_COLS
+        matrix_row_t pressed_keys_on_row_as_bits = matrix_get_row(row_index);
+
+        // Iterate through the bit representation of the row to determine if a press occurred on a particular key
+        for (uint8_t col_index = 0; col_index < MATRIX_COLS; ++col_index) {
+
+            // Perform bitwise operation to determine if number at col_index position is pressed (result is something greater than 0)
+            bool key_is_down = (pressed_keys_on_row_as_bits & (1 << col_index)) > 0;
+
+            if (key_is_down) {
+                // Set cached value at the position to the row and column index incremented by 1 (to allow for null/empty value verification)
+                pressed_keys[new_cache_index].row = row_index+1; 
+                pressed_keys[new_cache_index].col = col_index+1;
+
+                // Performs check against cached value for the pressed_key and sets a boolean to return once the processing is complete (still need to obtain all pressed keys for the next cache)
+                if (pressed_keys[new_cache_index].row && pressed_keys[new_cache_index].col && !pressed_keys_prev[new_cache_index].row && !pressed_keys_prev[new_cache_index].col) {
+                    new_key_pressed = true;
                 }
 
             }
             else {
-                pressed_keys[key_array_index].row = 0;
-                pressed_keys[key_array_index].col = 0;
+                // Set cached values for row and column to 0 to represent an idle key
+                pressed_keys[new_cache_index].row = 0;
+                pressed_keys[new_cache_index].col = 0;
             }
-            ++key_array_index;
+
+            ++new_cache_index;
         }
     }
 
-    return new_keys_pressed;
+    return new_key_pressed;
 }
 
 void set_animation_state(void) {
-    key_down = detect_key_down();
-    
-    // It is being set to Prep right after being set to Tap
-    // Logic flow: I press when it is idle, it is set to Tap and then Prep immediately (seems like two presses get registered on one)
+    new_key_press = check_if_new_key_press();
 
     switch (animation_state) {
         case Idle:
@@ -105,10 +112,6 @@ static void draw_bongo(bool minimal) {
     oled_set_cursor(0, 0);
 
     switch (animation_state) {
-    // }
-    
-
-    switch (anim_state) {
         case Idle:
             oled_write_raw_P(idle[abs((IDLE_FRAMES - 1) - current_idle_frame)], ANIMATION_SIZE);
 

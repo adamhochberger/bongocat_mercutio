@@ -1,10 +1,10 @@
-#define ANIM_FRAME_DURATION 75 // how long each frame lasts in ms
+#define ANIMATION_FRAME_DURATION 75 // how long each frame lasts in ms
 #define IDLE_TIMEOUT 750 // the amount of time it takes to return to idle
 #define KEYS_SIZE 50 // the number of keys stored in the array that tracks keypresses; how many keys are on the board?
 
 #include "bongo_images.h"
 
-enum anim_states {
+enum animation_states {
     Idle,
     Prep,
     Tap
@@ -20,14 +20,14 @@ struct key_coordinate pressed_keys_prev[KEYS_SIZE];
 
 char wpm_str[10];
 
-bool key_down = false;
+uint8_t animation_state = Idle;
 
 uint8_t anim_state = Idle;
 uint8_t current_idle_frame = 0;
 uint8_t current_tap_frame = 0;
 uint8_t key_array_index = 0;
 uint32_t idle_timeout_timer = 0;
-uint32_t anim_timer = 0;
+uint32_t animation_timer = 0;
 
 bool detect_key_down(void) {
     // Set local variable that determines if new keys were pressed
@@ -65,32 +65,32 @@ bool detect_key_down(void) {
     return new_keys_pressed;
 }
 
-void eval_anim_state(void) {
+void set_animation_state(void) {
     key_down = detect_key_down();
     
     // It is being set to Prep right after being set to Tap
     // Logic flow: I press when it is idle, it is set to Tap and then Prep immediately (seems like two presses get registered on one)
 
-    switch (anim_state) {
+    switch (animation_state) {
         case Idle:
-            if (key_down) {
-                anim_state = Tap;
+            if (new_key_press) {
+                animation_state = Tap;
             }
             break;
 
         case Prep:
-            if (key_down) {
-                anim_state = Tap;
+            if (new_key_press) {
+                animation_state = Tap;
             }
             else if (timer_elapsed32(idle_timeout_timer) >= IDLE_TIMEOUT) {
-                anim_state = Idle;
+                animation_state = Idle;
                 current_idle_frame = 0;
             }
             break;
 
         case Tap:
-            if (!key_down) {
-                anim_state = Prep;
+            if (!new_key_press) {
+                animation_state = Prep;
                 idle_timeout_timer = timer_read32();
             }
             break;
@@ -101,35 +101,29 @@ void eval_anim_state(void) {
 }
 
 static void draw_bongo(bool minimal) {
-    eval_anim_state();
+    set_animation_state();
     oled_set_cursor(0, 0);
-    // if (idle_timeout_timer == 0) {
-    //     idle_timeout_timer = timer_read32();
-    // }
 
-    // if (timer_elapsed32(idle_timeout_timer) >= IDLE_TIMEOUT) {
-    //     oled_write_raw_P(tap[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIM_SIZE);
-    //     current_tap_frame = (current_tap_frame + 1) % TAP_FRAMES;
-    //     idle_timeout_timer = timer_read32();
+    switch (animation_state) {
     // }
     
 
     switch (anim_state) {
         case Idle:
-            oled_write_raw_P(idle[abs((IDLE_FRAMES - 1) - current_idle_frame)], ANIM_SIZE);
+            oled_write_raw_P(idle[abs((IDLE_FRAMES - 1) - current_idle_frame)], ANIMATION_SIZE);
 
-            if (timer_elapsed32(anim_timer) > ANIM_FRAME_DURATION) {
+            if (timer_elapsed32(animation_timer) > ANIMATION_FRAME_DURATION) {
                 current_idle_frame = (current_idle_frame + 1) % IDLE_FRAMES;
-                anim_timer = timer_read32();
+                animation_timer = timer_read32();
             }
             break;
 
         case Prep:
-            oled_write_raw_P(prep[0], ANIM_SIZE);
+            oled_write_raw_P(prep[0], ANIMATION_SIZE);
             break;
 
         case Tap:
-            oled_write_raw_P(tap[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIM_SIZE);
+            oled_write_raw_P(tap[abs((TAP_FRAMES - 1) - current_tap_frame)], ANIMATION_SIZE);
             current_tap_frame = (current_tap_frame + 1) % TAP_FRAMES;
             break;
 

@@ -35,7 +35,8 @@ bool check_if_new_key_press(void) {
     // Double for-loop to load cache with values that determine if a key was pressed or not
     for (uint8_t row_index = 0; row_index < MATRIX_ROWS; ++row_index) {
 
-        // Returns an n-bit representation of the pressed keys on the row, where n is a multiple of 8 based on the value of MATRIX_COLS
+        // Obtains the integer representation of which keys are pressed on the row
+        // Since this value is unique depending on the keys pressed, we can store that and check against it later on
         matrix_row_t pressed_keys_on_row_as_bits = matrix_get_row(row_index);
         pressed_keys[row_index] = pressed_keys_on_row_as_bits;
 

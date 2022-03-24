@@ -10,13 +10,8 @@ enum animation_states {
     Tap
 };
 
-struct key_coordinate {
-    uint8_t row;
-    uint8_t col;
-};
-
-struct key_coordinate pressed_keys[KEYS_SIZE];
-struct key_coordinate pressed_keys_prev[KEYS_SIZE];
+matrix_row_t pressed_keys[MATRIX_ROWS];
+matrix_row_t pressed_keys_prev[MATRIX_ROWS];
 
 bool new_key_press = false;
 
@@ -28,47 +23,25 @@ uint32_t animation_timer = 0;
 
 // Function that determines if a new key was pressed, while updating the pressed keys cache
 bool check_if_new_key_press(void) {
+    
     // Set local variable that determines if at least one new key was pressed
     bool new_key_pressed = false;
 
     // Store the previous cycle's cache
-    for (uint8_t cache_index = 0; cache_index < KEYS_SIZE; ++cache_index) {
-        pressed_keys_prev[cache_index].row = pressed_keys[cache_index].row;
-        pressed_keys_prev[cache_index].col = pressed_keys[cache_index].col;
+    for (uint8_t cache_index = 0; cache_index < MATRIX_ROWS; ++cache_index) {
+        pressed_keys_prev[cache_index] = pressed_keys[cache_index];
     }
     
-    uint8_t new_cache_index = 0;
-
     // Double for-loop to load cache with values that determine if a key was pressed or not
     for (uint8_t row_index = 0; row_index < MATRIX_ROWS; ++row_index) {
 
         // Returns an n-bit representation of the pressed keys on the row, where n is a multiple of 8 based on the value of MATRIX_COLS
         matrix_row_t pressed_keys_on_row_as_bits = matrix_get_row(row_index);
+        pressed_keys[row_index] = pressed_keys_on_row_as_bits;
 
-        // Iterate through the bit representation of the row to determine if a press occurred on a particular key
-        for (uint8_t col_index = 0; col_index < MATRIX_COLS; ++col_index) {
-
-            // Perform bitwise operation to determine if number at col_index position is pressed (result is something greater than 0)
-            bool key_is_down = (pressed_keys_on_row_as_bits & (1 << col_index)) > 0;
-
-            if (key_is_down) {
-                // Set cached value at the position to the row and column index incremented by 1 (to allow for null/empty value verification)
-                pressed_keys[new_cache_index].row = row_index+1; 
-                pressed_keys[new_cache_index].col = col_index+1;
-
-                // Performs check against cached value for the pressed_key and sets a boolean to return once the processing is complete (still need to obtain all pressed keys for the next cache)
-                if (pressed_keys[new_cache_index].row && pressed_keys[new_cache_index].col && !pressed_keys_prev[new_cache_index].row && !pressed_keys_prev[new_cache_index].col) {
-                    new_key_pressed = true;
-                }
-
-            }
-            else {
-                // Set cached values for row and column to 0 to represent an idle key
-                pressed_keys[new_cache_index].row = 0;
-                pressed_keys[new_cache_index].col = 0;
-            }
-
-            ++new_cache_index;
+        // Performs check against cached value for the pressed_key and sets a boolean to return once the processing is complete (still need to obtain all pressed keys for the next cache)
+        if (pressed_keys[row_index] > 0 && pressed_keys[row_index] != pressed_keys_prev[row_index]) {
+            new_key_pressed = true;
         }
     }
 

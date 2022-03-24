@@ -1,2 +1,2 @@
-WPM_ENABLE = no
 VIA_ENABLE = yes
+WPM_ENABLE = no

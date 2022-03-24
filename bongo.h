@@ -1,6 +1,6 @@
-#define ANIMATION_FRAME_DURATION 75 // how long each frame lasts in ms
-#define IDLE_TIMEOUT 750 // the amount of time it takes to return to idle
 #define KEYS_SIZE 50 // the number of keys stored in the array that tracks keypresses; how many keys are on the board?
+#define IDLE_TIMEOUT 750 // the amount of time it takes to return to idle
+#define ANIMATION_FRAME_DURATION 75 // how long each frame lasts in ms
 
 #include "bongo_images.h"
 
